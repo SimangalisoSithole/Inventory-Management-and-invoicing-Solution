@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TNO Portal - Asset Scanner</title>
+    
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        :root {
+            --brand-orange: #D34727;
+            --brand-green: #253E35;
+            --charcoal: #1F2937;
+            --steel-grey: #6B7280;
+            --light-bg: #F3F4F6;
+            --white: #FFFFFF;
+            --border-color: #E5E7EB;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: var(--light-bg);
+            color: var(--charcoal);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* -------------------------
+           MOBILE OVERLAY
+           ------------------------- */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 90;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* -------------------------
+           DASHBOARD LAYOUT (Sidebar & Header)
+           ------------------------- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--brand-green);
+            color: var(--white);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease-in-out;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            font-size: 20px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-header span {
+            color: var(--brand-orange);
+        }
+
+        .nav-menu {
+            list-style: none;
+            padding: 20px 0;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            padding: 0 15px;
+            margin-bottom: 5px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            color: #D1D5DB;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background-color: rgba(255,255,255,0.1);
+            color: var(--white);
+        }
+
+        .nav-link.active {
+            border-left: 4px solid var(--brand-orange);
+            border-radius: 0 8px 8px 0;
+        }
+
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.85rem;
+            color: #9CA3AF;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            width: 100%;
+        }
+
+        .top-header {
+            background-color: var(--white);
+            padding: 20px 30px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-left-menu {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--charcoal);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .mobile-menu-btn:hover {
+            background: var(--light-bg);
+        }
+
+        .header-title h1 {
+            font-size: 1.5rem;
+            color: var(--charcoal);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            background-color: var(--brand-orange);
+            color: var(--white);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .dashboard-padding {
+            padding: 30px;
+            display: flex;
+            justify-content: center; /* Centers the scanner on large screens */
+        }
+
+        /* -------------------------
+           CHECKOUT SPECIFIC STYLES
+           ------------------------- */
+        .checkout-container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--white);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+
+        .asset-box { 
+            background: var(--brand-green); 
+            color: var(--white); 
+            padding: 15px; 
+            border-radius: 8px; 
+            text-align: center; 
+            margin-bottom: 20px; 
+        }
+
+        .card { 
+            border: 1px solid var(--border-color); 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 15px; 
+            background: #F9FAFB; 
+        }
+        .card h3 { margin: 0 0 8px 0; color: var(--brand-orange); font-size: 16px; }
+        .card p { margin: 4px 0; font-size: 14px; color: var(--charcoal); }
+
+        .btn {
+            background: var(--brand-orange); 
+            color: var(--white); 
+            border: none; 
+            padding: 14px; 
+            width: 100%; 
+            border-radius: 6px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            font-size: 14px; 
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #b5391e; }
+        .btn.success { background: var(--brand-green); }
+        .btn.success:hover { background: #1a2d26; }
+        .btn.outline { 
+            background: transparent; 
+            color: var(--charcoal); 
+            border: 1px solid var(--border-color); 
+        }
+        .btn.outline:hover { background: #F9FAFB; }
+
+        #reader { 
+            width: 100%; 
+            margin: 0 auto 20px auto; 
+            display: none; 
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .manual-input-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .manual-input-group input[type="text"] { 
+            flex: 1; 
+            padding: 14px; 
+            border: 1px solid var(--border-color); 
+            border-radius: 6px; 
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+        }
+        .manual-input-group input[type="text"]:focus {
+            outline: none;
+            border-color: var(--brand-orange);
+        }
+        .manual-input-group button {
+            width: auto;
+            margin-top: 0;
+            padding: 0 20px;
+        }
+
+        /* -------------------------
+           RESPONSIVE MEDIA QUERIES
+           ------------------------- */
+        @media (max-width: 900px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                transform: translateX(-100%);
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .mobile-menu-btn {
+                display: block;
+            }
+            .top-header {
+                padding: 15px 20px;
+            }
+            .dashboard-padding {
+                padding: 15px;
+            }
+            .user-profile span {
+                display: none;
+            }
+            .checkout-container {
+                padding: 20px;
+            }
+            .manual-input-group {
+                flex-direction: column;
+            }
+            .manual-input-group button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header" style="justify-content: center; padding: 20px;">
+            <img src="./TNO.jpeg" alt="TNO Logo" style="height: 60px; border-radius: 50%;">
+            TNO <span>Portal</span>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+            </li>
+            <li class="nav-item">
+                <a href="invoice_generator.html" class="nav-link">Invoice Generator</a>
+            </li>
+            <li class="nav-item">
+                <a href="inventory.html" class="nav-link">Manage Inventory</a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link active">Asset Scanner</a>
+            </li>
+            <li class="nav-item">
+                <a href="customers.html" class="nav-link">Customers</a>
+            </li>
+            <li class="nav-item" style="margin-top: 20px;">
+                <a href="#" id="logoutBtn" class="nav-link">Log Out</a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            System by Smiiso Tech Solutions
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-left-menu">
+                <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="header-title">
+                    <h1>Yard Scanner</h1>
+                </div>
+            </div>
+            <div class="user-profile">
+                <span id="userEmailText">Loading...</span>
+                <div class="avatar">A</div>
+            </div>
+        </header>
+
+        <div class="dashboard-padding">
+            
+            <div class="checkout-container">
+                <div style="text-align: center; margin-bottom: 25px; color: var(--steel-grey);">
+                    <p>Scan equipment QR codes to process returns or verify checkouts.</p>
+                </div>
+
+                <div id="scanState">
+                    <div id="reader"></div>
+                    <button onclick="startScanner()" class="btn outline" id="startScanBtn">📸 Start Camera Scanner</button>
+                    
+                    <div style="text-align: center; margin: 25px 0; color: var(--steel-grey); font-size: 14px; position: relative;">
+                        <span style="background: var(--white); padding: 0 10px; position: relative; z-index: 2;">OR</span>
+                        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--border-color); z-index: 1;"></div>
+                    </div>
+                    
+                    <div class="manual-input-group">
+                        <input type="text" id="manualAssetInput" placeholder="Enter Asset ID (e.g. TNO-HM-001)">
+                        <button class="btn" onclick="processAsset(document.getElementById('manualAssetInput').value)">Lookup</button>
+                    </div>
+                </div>
+
+                <div id="actionState" style="display: none;">
+                    <div class="asset-box">
+                        <h2 id="displayAssetName" style="margin: 0; font-size: 18px;">Loading...</h2>
+                        <p id="displayAssetId" style="margin: 5px 0 0 0; opacity: 0.8; font-family: monospace;"></p>
+                    </div>
+                    
+                    <div id="resultsArea"></div>
+                    
+                    <button onclick="resetApp()" class="btn outline" style="margin-top: 20px;">Scan Another Item</button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Menu Toggle Logic
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            sidebarOverlay.classList.toggle('active');
+            document.body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
+        }
+        mobileMenuBtn.addEventListener('click', toggleSidebar);
+        sidebarOverlay.addEventListener('click', toggleSidebar);
+
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth <= 900) toggleSidebar();
+            });
+        });
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+        import { getFirestore, collection, query, where, getDocs, doc, writeBatch } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAcXHUtCeY3AKIob561pq_jSozsi90-_pg",
+            authDomain: "tno-steelworks.firebaseapp.com",
+            projectId: "tno-steelworks",
+            storageBucket: "tno-steelworks.firebasestorage.app",
+            messagingSenderId: "735755881821",
+            appId: "1:735755881821:web:74a0066ed2b6384fa9acb4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let currentScannedAssetId = null;
+        let inventoryDocId = null; 
+        let html5QrcodeScanner = null;
+
+        // Security Check
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('userEmailText').innerText = user.email;
+                
+                // Auto-process if URL parameter exists (from scanning QR code)
+                const urlParams = new URLSearchParams(window.location.search);
+                const assetParam = urlParams.get('asset');
+                if (assetParam) {
+                    window.processAsset(assetParam);
+                }
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        // Logout Logic
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            signOut(auth);
+        });
+
+        // ---------------------------------------------------
+        // Scanner & Processing Logic
+        // ---------------------------------------------------
+        window.startScanner = function() {
+            document.getElementById('reader').style.display = 'block';
+            document.getElementById('startScanBtn').style.display = 'none';
+            
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+            html5QrcodeScanner.render((decodedText) => {
+                try {
+                    const url = new URL(decodedText);
+                    const assetId = url.searchParams.get("asset");
+                    if(assetId) {
+                        html5QrcodeScanner.clear();
+                        window.processAsset(assetId);
+                        return;
+                    }
+                } catch(e) {}
+                
+                // Fallback
+                html5QrcodeScanner.clear();
+                window.processAsset(decodedText);
+            }, (error) => {});
+        };
+
+        window.processAsset = async function(assetId) {
+            if(!assetId) return alert("Please enter an Asset ID");
+            currentScannedAssetId = assetId;
+            
+            document.getElementById('scanState').style.display = 'none';
+            document.getElementById('actionState').style.display = 'block';
+            document.getElementById('resultsArea').innerHTML = "<p style='text-align:center;'>Searching inventory...</p>";
+
+            // Fetch from Inventory
+            const invRef = collection(db, "inventory");
+            const qInv = query(invRef, where("assetId", "==", assetId));
+            const invSnap = await getDocs(qInv);
+
+            if (invSnap.empty) {
+                document.getElementById('displayAssetName').innerText = "Asset Not Found";
+                document.getElementById('resultsArea').innerHTML = `<p style="color: var(--charcoal); text-align: center;">Asset ID <b>${assetId}</b> does not exist in inventory.</p>`;
+                return;
+            }
+
+            const invDoc = invSnap.docs[0];
+            const assetData = invDoc.data();
+            inventoryDocId = invDoc.id;
+
+            document.getElementById('displayAssetName').innerText = assetData.name || "Unnamed Asset";
+            document.getElementById('displayAssetId').innerText = assetData.assetId;
+
+            // Check if returning
+            if (assetData.status && assetData.status.toLowerCase() === "on hire") {
+                document.getElementById('resultsArea').innerHTML = `
+                    <div class="card" style="border-left: 4px solid var(--brand-orange);">
+                        <h3>Currently On Hire</h3>
+                        <p><b>Client:</b> ${assetData.currentClientName || 'Unknown'}</p>
+                        <p><b>Invoice:</b> #${assetData.currentInvoiceId || 'Unknown'}</p>
+                        <button class="btn" onclick="markReturned()">Mark as Returned to Yard</button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Looking for pending checkouts
+            document.getElementById('resultsArea').innerHTML = "<p style='text-align:center;'>Searching recent invoices...</p>";
+            const invcRef = collection(db, "invoices");
+            const invcSnap = await getDocs(invcRef); 
+            
+            let candidates = [];
+            let otherInvoicesContainingAsset = [];
+
+            invcSnap.forEach(doc => {
+                const invoice = doc.data();
+                const hasPendingItem = invoice.items && invoice.items.some(item => 
+                    item.assetId === assetId && item.lineStatus === "pending"
+                );
+                
+                if (hasPendingItem) {
+                    candidates.push(invoice);
+                    otherInvoicesContainingAsset.push(doc.id);
+                }
+            });
+
+            candidates.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+            if (candidates.length === 0) {
+                document.getElementById('resultsArea').innerHTML = `
+                    <div style="text-align:center; padding: 20px;">
+                        <p style="color: var(--charcoal); font-weight: 500;">No pending reservations found for this asset.</p>
+                        <p style="font-size: 12px; color: var(--steel-grey); margin-top: 5px;">If an invoice was just generated, please scan again to refresh.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `<h3 style="color: var(--brand-green); margin-bottom: 15px; font-size: 15px;">Pending Reservations (${candidates.length})</h3>`;
+            candidates.forEach(inv => {
+                html += `
+                    <div class="card">
+                        <h3>Invoice #${inv.invoiceNum}</h3>
+                        <p><b>Client:</b> ${inv.clientName}</p>
+                        <p><b>Date:</b> ${inv.date}</p>
+                        <button class="btn success" onclick="confirmCheckout('${inv.invoiceNum}', '${inv.clientName}', '${JSON.stringify(otherInvoicesContainingAsset)}')">Confirm Checkout to Client</button>
+                    </div>
+                `;
+            });
+
+            document.getElementById('resultsArea').innerHTML = html;
+        };
+
+        window.confirmCheckout = async function(selectedInvoiceNum, clientName, allMatchedInvoicesJson) {
+            const allMatchedInvoices = JSON.parse(allMatchedInvoicesJson);
+            const batch = writeBatch(db);
+            
+            document.getElementById('resultsArea').innerHTML = "<p style='text-align:center;'>Processing checkout transaction...</p>";
+
+            try {
+                // Update Invoices
+                for (const invId of allMatchedInvoices) {
+                    const docRef = doc(db, 'invoices', invId);
+                    const invData = (await getDocs(query(collection(db, "invoices"), where("invoiceNum", "==", invId)))).docs[0].data();
+                    
+                    let itemsUpdated = invData.items.map(item => {
+                        if (item.assetId === currentScannedAssetId && item.lineStatus === "pending") {
+                            if (invId === selectedInvoiceNum) {
+                                item.lineStatus = "cleared";
+                                item.clearedBy = currentUser.email;
+                                item.clearedAt = new Date().toISOString();
+                            } else {
+                                item.lineStatus = "needs_followup"; 
+                            }
+                        }
+                        return item;
+                    });
+                    
+                    batch.update(docRef, { items: itemsUpdated });
+                }
+
+                // Update Inventory Status
+                const inventoryRef = doc(db, 'inventory', inventoryDocId);
+                batch.update(inventoryRef, {
+                    status: "On Hire",
+                    currentInvoiceId: selectedInvoiceNum,
+                    currentClientName: clientName
+                });
+
+                // Log Transaction
+                const logsRef = collection(db, 'checkoutLogs');
+                const logRef = doc(logsRef); 
+                batch.set(logRef, {
+                    action: "CHECKOUT",
+                    assetId: currentScannedAssetId,
+                    invoiceNum: selectedInvoiceNum,
+                    clientName: clientName,
+                    timestamp: new Date().toISOString(),
+                    user: currentUser.email
+                });
+
+                await batch.commit();
+
+                document.getElementById('resultsArea').innerHTML = `
+                    <div style="text-align:center; color: var(--brand-green); padding: 20px;">
+                        <h2 style="margin:0; font-size: 24px;">✅ Success</h2>
+                        <p style="color: var(--charcoal); margin-top: 10px;">Asset verified and checked out to <b>${clientName}</b>.</p>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error(error);
+                alert("Transaction failed. Please try again.");
+            }
+        };
+
+        window.markReturned = async function() {
+            if(!confirm("Are you sure you want to mark this asset as returned to the yard?")) return;
+            
+            document.getElementById('resultsArea').innerHTML = "<p style='text-align:center;'>Updating database...</p>";
+            
+            const batch = writeBatch(db);
+            
+            const inventoryRef = doc(db, 'inventory', inventoryDocId);
+            batch.update(inventoryRef, {
+                status: "Available",
+                currentInvoiceId: null,
+                currentClientName: null
+            });
+
+            const logsRef = collection(db, 'checkoutLogs');
+            const logRef = doc(logsRef);
+            batch.set(logRef, {
+                action: "RETURNED",
+                assetId: currentScannedAssetId,
+                timestamp: new Date().toISOString(),
+                user: currentUser.email
+            });
+
+            await batch.commit();
+
+            document.getElementById('resultsArea').innerHTML = `
+                <div style="text-align:center; color: var(--brand-green); padding: 20px;">
+                    <h2 style="margin:0; font-size: 24px;">✅ Returned</h2>
+                    <p style="color: var(--charcoal); margin-top: 10px;">Asset is now marked as Available in the yard.</p>
+                </div>
+            `;
+        };
+
+        window.resetApp = function() {
+            currentScannedAssetId = null;
+            inventoryDocId = null;
+            document.getElementById('actionState').style.display = 'none';
+            document.getElementById('scanState').style.display = 'block';
+            document.getElementById('manualAssetInput').value = '';
+            
+            const url = new URL(window.location);
+            url.searchParams.delete('asset');
+            window.history.replaceState({}, '', url);
+        };
+    </script>
+</body>
+</html>

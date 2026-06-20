@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TNO Management Portal | Login</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        :root {
+            --brand-orange: #D34727;
+            --brand-green: #253E35;
+            --charcoal: #1F2937;
+            --steel-grey: #6B7280;
+            --light-bg: #F3F4F6;
+            --white: #FFFFFF;
+            --input-border: #D1D5DB;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { display: flex; height: 100vh; background-color: var(--light-bg); color: var(--charcoal); overflow: hidden; }
+
+        /* --- LAYOUT STYLES --- */
+        .portal-left {
+            flex: 1.2;
+            background: linear-gradient(135deg, rgba(31, 41, 55, 0.85), rgba(37, 62, 53, 0.9)), 
+                        url('./WhatsApp Image 2026-06-09 at 09.30.01.jpeg') center/cover no-repeat;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 60px; color: var(--white); position: relative;
+        }
+        .portal-right {
+            flex: 1; background-color: var(--white); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; padding: 40px; position: relative;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.05); z-index: 2;
+        }
+
+        /* --- BRANDING & INFO --- */
+        .brand-header { font-size: 32px; font-weight: 800; display: flex; align-items: center; gap: 15px; }
+        .system-info { max-width: 500px; animation: fadeIn 1s ease-out; }
+        .system-info h1 { font-size: 2.5rem; margin-bottom: 20px; line-height: 1.2; }
+        .system-info p { color: #E5E7EB; font-size: 1.1rem; line-height: 1.6; margin-bottom: 30px; }
+        
+        .module-list { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .module-list li { display: flex; align-items: center; gap: 10px; font-weight: 500; color: #F3F4F6; }
+        .module-list li::before { content: '■'; color: var(--brand-orange); font-size: 0.8rem; }
+        .copyright { font-size: 0.9rem; color: rgba(255,255,255,0.6); }
+
+        /* --- FORM STYLES --- */
+        .login-container { width: 100%; max-width: 400px; animation: slideUp 0.6s ease-out; }
+        .login-header { margin-bottom: 40px; }
+        .login-header h2 { font-size: 2rem; color: var(--brand-green); margin-bottom: 10px; }
+        .login-header p { color: var(--steel-grey); }
+
+        .form-group { margin-bottom: 20px; position: relative; }
+        .form-group label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: var(--charcoal); }
+        .form-control {
+            width: 100%; padding: 14px 16px; border: 2px solid var(--input-border);
+            border-radius: 8px; font-size: 1rem; transition: all 0.3s ease; background-color: #F9FAFB;
+        }
+        .form-control:focus { outline: none; border-color: var(--brand-orange); background-color: var(--white); box-shadow: 0 4px 12px rgba(211, 71, 39, 0.1); }
+
+        /* --- BUTTONS & CONTROLS --- */
+        .toggle-password { position: absolute; right: 15px; top: 38px; background: none; border: none; cursor: pointer; color: var(--steel-grey); transition: color 0.2s; }
+        .toggle-password:hover { color: var(--brand-orange); }
+        
+        .form-options { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; font-size: 0.9rem; }
+        .remember-me { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; }
+        .forgot-password { color: var(--brand-green); font-weight: 600; text-decoration: none; transition: color 0.2s; }
+        .forgot-password:hover { color: var(--brand-orange); }
+
+        .btn-login {
+            width: 100%; padding: 16px; background-color: var(--brand-orange); color: var(--white);
+            border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer;
+            transition: all 0.3s; display: flex; justify-content: center; align-items: center; gap: 10px;
+        }
+        .btn-login:hover { background-color: #b5391e; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(211, 71, 39, 0.2); }
+        .btn-login.loading { background-color: var(--steel-grey); cursor: not-allowed; pointer-events: none; }
+        .dev-credit { position: absolute; bottom: 30px; font-size: 0.8rem; color: var(--steel-grey); text-align: center; width: 100%; font-weight: 500; }
+
+        /* --- ANIMATIONS & MOBILE --- */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        @media (max-width: 900px) {
+            body { flex-direction: column; overflow-y: auto; height: auto; min-height: 100vh; }
+            .portal-left { flex: none; padding: 40px 20px; min-height: 250px; justify-content: center; align-items: center; text-align: center; }
+            .brand-header { justify-content: center; margin-bottom: 0; }
+            .system-info, .copyright { display: none; }
+            .portal-right { flex: 1; padding: 50px 20px; border-radius: 20px 20px 0 0; margin-top: -20px; }
+            .login-container { margin-bottom: 40px; }
+            .dev-credit { position: relative; bottom: 0; margin-top: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="portal-left">
+        <div class="brand-header">
+            <img src="WhatsApp Image 2026-06-08 at 20.13.14.jpeg" alt="TNO Logo" style="height: 65px; border-radius: 50%; border: 2px solid white;">
+        </div>
+        <div class="system-info">
+            <h1>Internal Operations & Management System</h1>
+            <p>Secure portal for authorized personnel only. Manage daily rentals, equipment inventory, and client invoicing from a centralized dashboard.</p>
+            <ul class="module-list">
+                <li>Inventory Tracking</li><li>Invoice Generation</li>
+                <li>Rental Contracts</li><li>Customer Database</li>
+                <li>Maintenance Logs</li><li>Revenue Reporting</li>
+            </ul>
+        </div>
+        <div class="copyright">&copy; 2026 TNO Machinery Hire. CK 2013/135026/07.</div>
+    </div>
+
+    <div class="portal-right">
+        <div class="login-container">
+            <div class="login-header">
+                <h2>Welcome Back</h2>
+                <p>Please sign in to access the system dashboard.</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Staff Email / Username</label>
+                    <input type="email" id="email" class="form-control" placeholder="e.g. admin@tnomachine.co.za" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="form-control" placeholder="Enter your password" required>
+                    <button type="button" class="toggle-password" id="togglePassword" aria-label="Toggle password visibility">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                </div>
+                <div class="form-options">
+                    <label class="remember-me"><input type="checkbox" id="remember"><span>Remember me</span></label>
+                    <a href="#" class="forgot-password">Forgot password?</a>
+                </div>
+                <button type="submit" class="btn-login" id="loginBtn"><span>Log In to Dashboard</span></button>
+            </form>
+        </div>
+        <div class="dev-credit">System engineered by Smiiso Tech Solutions</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAcXHUtCeY3AKIob561pq_jSozsi90-_pg",
+            authDomain: "tno-steelworks.firebaseapp.com",
+            projectId: "tno-steelworks",
+            storageBucket: "tno-steelworks.firebasestorage.app",
+            messagingSenderId: "735755881821",
+            appId: "1:735755881821:web:74a0066ed2b6384fa9acb4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // --- PASSWORD VISIBILITY TOGGLE ---
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        togglePassword.addEventListener('click', function () {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.style.opacity = type === 'password' ? '1' : '0.5';
+        });
+
+        // --- AUTHENTICATION LOGIC ---
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+
+        /**
+         * Handles the form submission securely, providing loading state feedback
+         * and catching authentication errors smoothly.
+         */
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault(); 
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            
+            // Set Loading UI State
+            loginBtn.classList.add('loading');
+            loginBtn.innerHTML = `
+                <svg class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+                    <line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+                </svg>
+                <span>Authenticating...</span>
+            `;
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                console.error("Auth Error:", error.code);
+                alert("Login failed: Ensure your email and password are correct.");
+                
+                // Reset Button UI
+                loginBtn.classList.remove('loading');
+                loginBtn.innerHTML = `<span>Log In to Dashboard</span>`;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TNO Portal - Manage Inventory</title>
+    
+    <!-- QR Code & PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        :root {
+            --brand-orange: #D34727;
+            --brand-green: #253E35;
+            --charcoal: #1F2937;
+            --steel-grey: #6B7280;
+            --light-bg: #F3F4F6;
+            --white: #FFFFFF;
+            --border-color: #E5E7EB;
+            
+            /* Status Colors */
+            --status-avail-bg: #D1FAE5;
+            --status-avail-text: #065F46;
+            --status-hire-bg: #FEF3C7;
+            --status-hire-text: #92400E;
+            --status-maint-bg: #FEE2E2;
+            --status-maint-text: #991B1B;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { display: flex; height: 100vh; background-color: var(--light-bg); color: var(--charcoal); overflow: hidden; position: relative; }
+
+        /* -------------------------
+           QR MODAL & PRINT STYLES
+           ------------------------- */
+        .qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
+        .qr-modal.active { display: flex; animation: fadeIn 0.2s ease-out; }
+        .qr-content { background: white; padding: 30px; border-radius: 12px; text-align: center; max-width: 400px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        #qrcodeArea { margin: 20px auto; display: flex; justify-content: center; }
+        
+        @media print {
+            body * { visibility: hidden; }
+            .sidebar, .top-header, .qr-content h3, .qr-content p, .qr-content button { display: none !important; }
+            
+            /* 50mm x 30mm Label constraints */
+            @page { size: 50mm 30mm; margin: 0; }
+            
+            #printLabelContainer, #printLabelContainer * { visibility: visible; }
+            #printLabelContainer {
+                position: absolute; left: 0; top: 0; width: 50mm; height: 30mm;
+                display: flex; flex-direction: row; align-items: center; justify-content: center;
+                padding: 2mm; box-sizing: border-box; font-family: sans-serif;
+            }
+            #printLabelContainer img { width: 22mm; height: 22mm; }
+            .label-text { margin-left: 3mm; flex: 1; text-align: left; }
+            .label-text h4 { font-size: 10px; margin: 0 0 2px 0; color: #000; }
+            .label-text p { font-size: 8px; margin: 0; line-height: 1.2; color: #000; }
+        }
+
+        /* -------------------------
+           GENERAL LAYOUT STYLES
+           ------------------------- */
+        .sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 90; opacity: 0; visibility: hidden; transition: all 0.3s ease-in-out; }
+        .sidebar-overlay.active { opacity: 1; visibility: visible; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 200; justify-content: center; align-items: center; padding: 20px; }
+        .modal.active { display: flex; animation: fadeIn 0.2s ease-out; }
+        .modal-content { background-color: var(--white); width: 100%; max-width: 500px; border-radius: 12px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h2 { font-size: 1.25rem; color: var(--brand-green); }
+        .close-modal { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--steel-grey); }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.95rem; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--brand-orange); }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .sidebar { width: 260px; background-color: var(--brand-green); color: var(--white); display: flex; flex-direction: column; transition: transform 0.3s ease-in-out; z-index: 100; }
+        .sidebar-header { padding: 24px; font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header span { color: var(--brand-orange); }
+        .nav-menu { list-style: none; padding: 20px 0; flex: 1; overflow-y: auto; }
+        .nav-item { padding: 0 15px; margin-bottom: 5px; }
+        .nav-link { display: flex; align-items: center; padding: 12px 15px; color: #D1D5DB; text-decoration: none; border-radius: 8px; font-weight: 500; transition: all 0.2s; }
+        .nav-link:hover, .nav-link.active { background-color: rgba(255,255,255,0.1); color: var(--white); }
+        .nav-link.active { border-left: 4px solid var(--brand-orange); border-radius: 0 8px 8px 0; }
+        .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: #9CA3AF; }
+
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; width: 100%; }
+        .top-header { background-color: var(--white); padding: 20px 30px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
+        .header-left-menu { display: flex; align-items: center; gap: 15px; }
+        .mobile-menu-btn { display: none; background: none; border: none; color: var(--charcoal); cursor: pointer; padding: 5px; border-radius: 4px; }
+        .header-title h1 { font-size: 1.5rem; color: var(--charcoal); }
+        .user-profile { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+        .avatar { width: 40px; height: 40px; background-color: var(--brand-orange); color: var(--white); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
+        
+        .dashboard-padding { padding: 30px; }
+        .page-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
+        .actions-right { display: flex; gap: 10px; }
+        
+        .btn { padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; border: none; transition: background-color 0.2s, transform 0.1s; }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background-color: var(--brand-orange); color: var(--white); }
+        .btn-primary:hover { background-color: #b5391e; }
+        .btn-secondary { background-color: var(--white); color: var(--brand-orange); border: 1px solid var(--brand-orange); }
+        .btn-secondary:hover { background-color: #FFF5F3; }
+
+        .panel { background-color: var(--white); border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+        .panel-toolbar { padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background-color: #F9FAFB; flex-wrap: wrap; gap: 15px; }
+        .search-bar { display: flex; align-items: center; background: var(--white); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 15px; width: 100%; max-width: 300px; }
+        .search-bar input { border: none; outline: none; width: 100%; font-size: 0.9rem; margin-left: 8px; }
+        .filter-tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+        .filter-tab { padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 600; cursor: pointer; background: none; border: 1px solid transparent; color: var(--steel-grey); transition: all 0.2s; }
+        .filter-tab:hover { background-color: var(--border-color); }
+        .filter-tab.active { background-color: var(--white); border-color: var(--border-color); color: var(--charcoal); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+
+        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; min-width: 700px; }
+        th, td { padding: 15px 20px; text-align: left; font-size: 0.9rem; border-bottom: 1px solid var(--border-color); }
+        th { background-color: var(--white); font-weight: 600; color: var(--steel-grey); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
+        .item-name { font-weight: 600; color: var(--brand-green); }
+        .item-category { font-size: 0.8rem; color: var(--steel-grey); }
+
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; display: inline-block; }
+        .status-available { background-color: var(--status-avail-bg); color: var(--status-avail-text); }
+        .status-on-hire { background-color: var(--status-hire-bg); color: var(--status-hire-text); }
+        .status-maintenance { background-color: var(--status-maint-bg); color: var(--status-maint-text); }
+
+        .action-link { color: var(--steel-grey); text-decoration: none; font-weight: 600; margin-right: 15px; transition: color 0.2s; }
+        .action-link:hover { color: var(--brand-orange); }
+
+        @media (max-width: 900px) {
+            .sidebar { position: fixed; top: 0; left: 0; height: 100vh; transform: translateX(-100%); }
+            .sidebar.active { transform: translateX(0); }
+            .mobile-menu-btn { display: block; }
+            .top-header, .dashboard-padding { padding: 15px; }
+            .user-profile span { display: none; }
+            .search-bar { max-width: 100%; }
+            .actions-right { width: 100%; flex-direction: column; }
+            .actions-right .btn { width: 100%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- MODAL: ADD EQUIPMENT -->
+    <div class="modal" id="addEquipmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Equipment</h2>
+                <button class="close-modal" id="closeModalBtn">&times;</button>
+            </div>
+            <form id="addEquipmentForm">
+                <div class="form-group">
+                    <label>Asset ID</label>
+                    <input type="text" id="eqAssetId" value="Auto-generated by Category" disabled style="background-color: var(--light-bg); color: var(--steel-grey); font-weight: 600;">
+                </div>
+                <div class="form-group">
+                    <label>Equipment Name</label>
+                    <input type="text" id="eqName" placeholder="e.g., CAT 320 Excavator" required>
+                </div>
+                <div class="form-group">
+                    <label>Serial Number (Optional)</label>
+                    <input type="text" id="eqSerial" placeholder="e.g., C320-99827">
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="eqCategory" required>
+                        <option value="Heavy Machinery">Heavy Machinery</option>
+                        <option value="Compaction">Compaction</option>
+                        <option value="Power Tools">Power Tools</option>
+                        <option value="Power Generation">Power Generation</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Daily Rate (R)</label>
+                    <input type="number" id="eqRate" placeholder="e.g., 3500" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="eqStatus" required>
+                        <option value="available">Available</option>
+                        <option value="on hire">On Hire</option>
+                        <option value="maintenance">Maintenance</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelModalBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveEqBtn">Save Asset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: SINGLE QR CODE (Triggers after saving) -->
+    <div id="qrModal" class="qr-modal">
+        <div class="qr-content no-print">
+            <h3 style="color: var(--brand-green); margin-bottom: 10px;">Asset Saved Successfully!</h3>
+            <p style="color: var(--steel-grey); font-size: 14px; margin-bottom: 20px;">Print the QR label to affix to the equipment.</p>
+            
+            <div id="printLabelContainer" style="border: 1px dashed var(--border-color); display: inline-block; padding: 15px;">
+                <div id="qrcodeArea"></div>
+                <div class="label-text" style="text-align: center; margin-top: 10px;">
+                    <h4 id="labelAssetId" style="font-size: 18px; margin: 0; color: var(--brand-orange);">000</h4>
+                    <p id="labelAssetName" style="font-size: 14px; margin: 5px 0; font-weight: bold; color: var(--charcoal);">Equipment Name</p>
+                    <p style="font-size: 12px; margin: 0; color: var(--steel-grey);">TNO Machinery Hire</p>
+                </div>
+            </div>
+
+            <div style="margin-top: 25px; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn btn-secondary" onclick="document.getElementById('qrModal').classList.remove('active')">Close</button>
+                <button class="btn btn-primary" onclick="window.print()">Print Single Label</button>
+            </div>
+        </div>
+    </div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header" style="justify-content: center; padding: 20px;">
+            <img src="./TNO.jpeg" alt="TNO Logo" style="height: 60px; border-radius: 50%;">
+            TNO <span>Portal</span>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item"><a href="dashboard.html" class="nav-link">Dashboard</a></li>
+            <li class="nav-item"><a href="invoice_generator.html" class="nav-link">Invoice Generator</a></li>
+            <li class="nav-item"><a href="inventory.html" class="nav-link active">Manage Inventory</a></li>
+            <li class="nav-item"><a href="checkout.html" class="nav-link">Asset Scanner</a></li>
+            <li class="nav-item"><a href="customers.html" class="nav-link">Customers</a></li>
+            <li class="nav-item" style="margin-top: 20px;"><a href="#" id="logoutBtn" class="nav-link">Log Out</a></li>
+        </ul>
+        <div class="sidebar-footer">System by Smiiso Tech Solutions</div>
+    </aside>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-left-menu">
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+                <div class="header-title"><h1>Equipment Inventory</h1></div>
+            </div>
+            <div class="user-profile"><span id="userEmailText">Loading...</span><div class="avatar">A</div></div>
+        </header>
+
+        <div class="dashboard-padding">
+            <div class="page-actions">
+                <p style="color: var(--steel-grey); margin: 0;">Manage your equipment, track availability, and schedule maintenance.</p>
+                <div class="actions-right">
+                    <button class="btn btn-secondary" id="downloadQrsBtn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Download QR PDF
+                    </button>
+                    <button class="btn btn-primary" id="openModalBtn">+ Add New Equipment</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-toolbar">
+                    <div class="search-bar">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--steel-grey);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" id="searchInput" placeholder="Search by name, model, or ID..." onkeyup="searchTable()">
+                    </div>
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" onclick="filterTable('all')">All Assets</button>
+                        <button class="filter-tab" onclick="filterTable('available')">Available</button>
+                        <button class="filter-tab" onclick="filterTable('on-hire')">On Hire</button>
+                        <button class="filter-tab" onclick="filterTable('maintenance')">Maintenance</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table id="inventoryTable">
+                        <thead>
+                            <tr>
+                                <th>Asset ID</th>
+                                <th>Equipment Details</th>
+                                <th>Category</th>
+                                <th>Daily Rate</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            <tr><td colspan="6" style="text-align:center; color:#6B7280;">Loading database...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- UI Logic Script -->
+    <script>
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            sidebarOverlay.classList.toggle('active');
+            document.body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
+        }
+
+        mobileMenuBtn.addEventListener('click', toggleSidebar);
+        sidebarOverlay.addEventListener('click', toggleSidebar);
+
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => { if (window.innerWidth <= 900) toggleSidebar(); });
+        });
+
+        function filterTable(status) {
+            document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            const rows = document.querySelectorAll('#inventoryTable tbody tr');
+            rows.forEach(row => {
+                if (status === 'all') row.style.display = '';
+                else if (status === 'available' && row.classList.contains('row-available')) row.style.display = '';
+                else if (status === 'on-hire' && row.classList.contains('row-on-hire')) row.style.display = '';
+                else if (status === 'maintenance' && row.classList.contains('row-maintenance')) row.style.display = '';
+                else row.style.display = 'none';
+            });
+            document.getElementById('searchInput').value = '';
+        }
+
+        function searchTable() {
+            document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector('.filter-tab').classList.add('active');
+            const filter = document.getElementById("searchInput").value.toUpperCase();
+            const tr = document.getElementById("inventoryTable").getElementsByTagName("tr");
+            for (let i = 1; i < tr.length; i++) {
+                let rowVisible = false;
+                const tds = tr[i].getElementsByTagName("td");
+                for (let j = 0; j < 3; j++) {
+                    if (tds[j]) {
+                        if ((tds[j].textContent || tds[j].innerText).toUpperCase().indexOf(filter) > -1) {
+                            rowVisible = true; break;
+                        }
+                    }
+                }
+                tr[i].style.display = rowVisible ? "" : "none";
+            }
+        }
+    </script>
+
+    <!-- Firebase Integrated Logic -->
+   <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, addDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+        // --- 1. CONFIGURATION & INIT ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAcXHUtCeY3AKIob561pq_jSozsi90-_pg",
+            authDomain: "tno-steelworks.firebaseapp.com",
+            projectId: "tno-steelworks",
+            storageBucket: "tno-steelworks.firebasestorage.app",
+            messagingSenderId: "735755881821",
+            appId: "1:735755881821:web:74a0066ed2b6384fa9acb4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        let globalInventoryList = []; // Caches items for bulk PDF export
+
+        /**
+         * Security Utility: Prevents Cross-Site Scripting (XSS)
+         */
+        const escapeHTML = (str) => {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        };
+
+        // --- 2. AUTHENTICATION ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                document.getElementById('userEmailText').innerText = escapeHTML(user.email);
+                await loadInventoryData();
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            signOut(auth);
+        });
+
+        // --- 3. DATA LOADING & RENDERING ---
+        async function loadInventoryData() {
+            const tbody = document.getElementById('inventoryTableBody');
+            try {
+                const querySnapshot = await getDocs(collection(db, "inventory"));
+                globalInventoryList = []; 
+                
+                if (querySnapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#6B7280;">No equipment found in database. Add some!</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = ''; 
+                querySnapshot.forEach((doc) => {
+                    const item = doc.data();
+                    globalInventoryList.push(item); 
+                    
+                    const statusStr = (item.status || 'available').toLowerCase();
+                    const statusClass = statusStr.replace(' ', '-'); 
+                    
+                    let badgeClass = 'status-available';
+                    if (statusStr === 'on hire') badgeClass = 'status-on-hire';
+                    else if (statusStr === 'maintenance') badgeClass = 'status-maintenance';
+
+                    const rateFormatted = parseFloat(item.rate) || 0;
+                    
+                    // Sanitize all data before rendering
+                    const safeId = escapeHTML(item.assetId || 'N/A');
+                    const safeName = escapeHTML(item.name || 'Unnamed Item');
+                    const safeSerial = escapeHTML(item.serial || 'N/A');
+                    const safeCategory = escapeHTML(item.category || '--');
+                    const safeStatus = escapeHTML((item.status || 'Available').toUpperCase());
+
+                    const tr = document.createElement('tr');
+                    tr.className = `row-${statusClass}`; 
+                    tr.innerHTML = `
+                        <td><strong>${safeId}</strong></td>
+                        <td>
+                            <div class="item-name">${safeName}</div>
+                            <div class="item-category">Serial: ${safeSerial}</div>
+                        </td>
+                        <td>${safeCategory}</td>
+                        <td>R ${rateFormatted.toFixed(2)}</td>
+                        <td><span class="status-badge ${badgeClass}">${safeStatus}</span></td>
+                        <td><a href="#" class="action-link" onclick="event.preventDefault()">View Log</a></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error("Error loading inventory:", error);
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Error fetching data. Check console.</td></tr>';
+            }
+        }
+
+        // --- 4. ADD EQUIPMENT & QR GENERATION LOGIC ---
+        const modal = document.getElementById('addEquipmentModal');
+        document.getElementById('openModalBtn').addEventListener('click', () => modal.classList.add('active'));
+
+        const closeModal = () => modal.classList.remove('active');
+        document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+        document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
+
+        document.getElementById('addEquipmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault(); 
+            const saveBtn = document.getElementById('saveEqBtn');
+            saveBtn.innerText = 'Saving...';
+            saveBtn.disabled = true;
+
+            const category = document.getElementById('eqCategory').value;
+            const prefixMap = { "Heavy Machinery": "HM", "Compaction": "CP", "Power Tools": "PT", "Power Generation": "PG", "Other": "OT" };
+            const prefix = prefixMap[category] || "EQ";
+
+            try {
+                // Generate sequential Asset ID
+                const inventorySnap = await getDocs(collection(db, "inventory"));
+                let maxNum = 0;
+                inventorySnap.forEach(doc => {
+                    const data = doc.data();
+                    if (data.assetId && data.assetId.startsWith(`TNO-${prefix}-`)) {
+                        const parts = data.assetId.split('-');
+                        if (parts.length >= 3) {
+                            const numPart = parseInt(parts[2]);
+                            if (!isNaN(numPart)) maxNum = Math.max(maxNum, numPart);
+                        }
+                    }
+                });
+                
+                const nextNum = String(maxNum + 1).padStart(3, '0');
+                const generatedAssetId = `TNO-${prefix}-${nextNum}`;
+
+                const newAsset = {
+                    assetId: generatedAssetId,
+                    name: document.getElementById('eqName').value.trim(),
+                    serial: document.getElementById('eqSerial').value.trim() || 'N/A',
+                    category: category,
+                    rate: Number(document.getElementById('eqRate').value),
+                    status: document.getElementById('eqStatus').value
+                };
+
+                // Push to Firebase
+                const docRef = await addDoc(collection(db, "inventory"), newAsset);
+                
+                // Generate QR Payload Link
+                const hostingDomain = window.location.hostname || "tno-steelworks.web.app";
+                const qrPayloadUrl = `https://${hostingDomain}/checkout.html?asset=${generatedAssetId}`;
+                await updateDoc(doc(db, 'inventory', docRef.id), { qrPayloadUrl: qrPayloadUrl });
+
+                // Render Single QR Code Modal
+                document.getElementById('qrcodeArea').innerHTML = ""; 
+                new QRCode(document.getElementById("qrcodeArea"), {
+                    text: qrPayloadUrl, width: 100, height: 100
+                });
+
+                document.getElementById('labelAssetName').innerText = escapeHTML(newAsset.name);
+                document.getElementById('labelAssetId').innerText = escapeHTML(newAsset.assetId);
+
+                closeModal();
+                document.getElementById('addEquipmentForm').reset();
+                saveBtn.innerText = 'Save Asset';
+                saveBtn.disabled = false;
+                
+                document.getElementById('qrModal').classList.add('active');
+                await loadInventoryData();
+                
+            } catch (error) {
+                console.error("Database Error:", error);
+                alert("Error saving to database. Please check console.");
+                saveBtn.innerText = 'Save Asset';
+                saveBtn.disabled = false;
+            }
+        });
+
+        // --- 5. BULK PDF GENERATION LOGIC ---
+        const generateQRBase64 = async (text) => {
+            return new Promise((resolve) => {
+                const tempDiv = document.createElement('div');
+                new QRCode(tempDiv, { text: text, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.H });
+                const checkCanvas = setInterval(() => {
+                    const canvas = tempDiv.querySelector('canvas');
+                    if (canvas) {
+                        clearInterval(checkCanvas);
+                        resolve(canvas.toDataURL('image/png'));
+                    }
+                }, 10);
+            });
+        };
+
+        document.getElementById('downloadQrsBtn').addEventListener('click', async (e) => {
+            const btn = e.target;
+            btn.innerHTML = 'Generating PDF...';
+            btn.disabled = true;
+
+            if (globalInventoryList.length === 0) {
+                alert("No inventory items found to generate QRs.");
+                btn.innerHTML = 'Download QR PDF';
+                btn.disabled = false;
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const pageWidth = doc.internal.pageSize.getWidth(); 
+            
+            const startX = 15;
+            let currentX = startX, currentY = 30;
+            const cardWidth = 85, cardHeight = 100, colSpacing = 10, rowSpacing = 10, maxBottom = 270; 
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(22);
+            doc.setTextColor(211, 71, 39); 
+            doc.text("TNO Machinery QR Codes", pageWidth / 2, 20, { align: "center" });
+
+            for (let i = 0; i < globalInventoryList.length; i++) {
+                const item = globalInventoryList[i];
+                const safeId = escapeHTML(item.assetId || 'ID UNKNOWN');
+                const safeName = escapeHTML(item.name || 'Unnamed Asset');
+                const safeCategory = escapeHTML((item.category || 'CATEGORY').toUpperCase());
+                
+                doc.setDrawColor(220, 220, 220);
+                doc.setFillColor(255, 255, 255);
+                doc.roundedRect(currentX, currentY, cardWidth, cardHeight, 3, 3, 'FD');
+
+                doc.setDrawColor(211, 71, 39); 
+                doc.setLineWidth(1.5);
+                doc.line(currentX + 2, currentY + 1, currentX + cardWidth - 2, currentY + 1);
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(14);
+                doc.setTextColor(50, 50, 50);
+                doc.text(safeId, currentX + (cardWidth/2), currentY + 15, { align: "center" });
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text(safeName, currentX + (cardWidth/2), currentY + 22, { align: "center" });
+
+                doc.setFontSize(8);
+                doc.setTextColor(160, 160, 160);
+                doc.text(safeCategory, currentX + (cardWidth/2), currentY + 28, { align: "center" });
+
+                const hostingDomain = window.location.hostname || "tno-steelworks.web.app";
+                const fallbackLink = `https://${hostingDomain}/checkout.html?asset=${item.assetId}`;
+                const qrUrl = item.qrPayloadUrl || fallbackLink;
+                
+                const qrBase64 = await generateQRBase64(qrUrl);
+                doc.addImage(qrBase64, 'PNG', currentX + (cardWidth / 2) - 25, currentY + 35, 50, 50);
+
+                doc.setFillColor(245, 245, 245);
+                doc.roundedRect(currentX + (cardWidth/2) - 15, currentY + 88, 30, 6, 1, 1, 'F');
+                doc.setFontSize(7);
+                doc.setTextColor(180, 180, 180);
+                doc.text(`ID: ${safeId}`, currentX + (cardWidth/2), currentY + 92, { align: "center" });
+
+                if (currentX === startX) {
+                    currentX = startX + cardWidth + colSpacing; 
+                } else {
+                    currentX = startX; 
+                    currentY += cardHeight + rowSpacing; 
+                    
+                    if (currentY + cardHeight > maxBottom && i !== globalInventoryList.length - 1) {
+                        doc.addPage();
+                        currentY = 30;
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(22);
+                        doc.setTextColor(211, 71, 39); 
+                        doc.text("TNO Machinery QR Codes", pageWidth / 2, 20, { align: "center" });
+                    }
+                }
+            }
+
+            doc.save("TNO_Machinery_QRCodes.pdf");
+            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download QR PDF`;
+            btn.disabled = false;
+        });
+    </script>
+</body>
+</html>

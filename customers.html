@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TNO Portal - Customers</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        :root {
+            --brand-orange: #D34727;
+            --brand-green: #253E35;
+            --charcoal: #1F2937;
+            --steel-grey: #6B7280;
+            --light-bg: #F3F4F6;
+            --white: #FFFFFF;
+            --border-color: #E5E7EB;
+            
+            /* Status Colors */
+            --status-clear-bg: #D1FAE5;
+            --status-clear-text: #065F46;
+            --status-owe-bg: #FEE2E2;
+            --status-owe-text: #991B1B;
+            --badge-neutral-bg: #F3F4F6;
+            --badge-neutral-text: #374151;
+            --danger-text: #DC2626;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: var(--light-bg);
+            color: var(--charcoal);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* -------------------------
+           MOBILE OVERLAY
+           ------------------------- */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 90;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* -------------------------
+           MODAL STYLES (NEW)
+           ------------------------- */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 200;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .modal-content {
+            background-color: var(--white);
+            width: 100%;
+            max-width: 500px;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            color: var(--brand-green);
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--steel-grey);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--brand-orange);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* -------------------------
+           DASHBOARD LAYOUT (Sidebar & Header)
+           ------------------------- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--brand-green);
+            color: var(--white);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease-in-out;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            font-size: 20px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-header span {
+            color: var(--brand-orange);
+        }
+
+        .nav-menu {
+            list-style: none;
+            padding: 20px 0;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            padding: 0 15px;
+            margin-bottom: 5px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            color: #D1D5DB;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background-color: rgba(255,255,255,0.1);
+            color: var(--white);
+        }
+
+        .nav-link.active {
+            border-left: 4px solid var(--brand-orange);
+            border-radius: 0 8px 8px 0;
+        }
+
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.85rem;
+            color: #9CA3AF;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            width: 100%;
+        }
+
+        .top-header {
+            background-color: var(--white);
+            padding: 20px 30px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-left-menu {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--charcoal);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .mobile-menu-btn:hover {
+            background: var(--light-bg);
+        }
+
+        .header-title h1 {
+            font-size: 1.5rem;
+            color: var(--charcoal);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            background-color: var(--brand-orange);
+            color: var(--white);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .dashboard-padding {
+            padding: 30px;
+        }
+
+        /* -------------------------
+           CUSTOMERS SPECIFIC STYLES
+           ------------------------- */
+        .page-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background-color: var(--brand-orange);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background-color: #b5391e;
+        }
+
+        .btn-secondary {
+            background-color: var(--white);
+            color: var(--charcoal);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #F9FAFB;
+        }
+
+        .panel {
+            background-color: var(--white);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .panel-toolbar {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #F9FAFB;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            background: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 15px;
+            width: 100%;
+            max-width: 350px;
+        }
+
+        .search-bar input {
+            border: none;
+            outline: none;
+            width: 100%;
+            font-size: 0.9rem;
+            margin-left: 8px;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: none;
+            border: 1px solid transparent;
+            color: var(--steel-grey);
+            transition: all 0.2s;
+        }
+
+        .filter-tab:hover {
+            background-color: var(--border-color);
+        }
+
+        .filter-tab.active {
+            background-color: var(--white);
+            border-color: var(--border-color);
+            color: var(--charcoal);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px; 
+        }
+
+        th, td {
+            padding: 15px 20px;
+            text-align: left;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: var(--white);
+            font-weight: 600;
+            color: var(--steel-grey);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            color: var(--charcoal);
+        }
+
+        .client-name {
+            font-weight: 700;
+            color: var(--brand-green);
+            margin-bottom: 4px;
+        }
+
+        .client-email {
+            font-size: 0.8rem;
+            color: var(--steel-grey);
+        }
+
+        .contact-info {
+            font-size: 0.85rem;
+        }
+
+        /* Status & Number Badges */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        .badge-count {
+            background-color: var(--badge-neutral-bg);
+            color: var(--badge-neutral-text);
+            border: 1px solid var(--border-color);
+        }
+
+        .badge-active {
+            background-color: var(--brand-orange);
+            color: var(--white);
+        }
+
+        .balance-clear { color: var(--status-clear-text); font-weight: 600; }
+        .balance-owe { color: var(--status-owe-text); font-weight: 700; }
+
+        .action-link {
+            color: var(--steel-grey);
+            text-decoration: none;
+            font-weight: 600;
+            margin-right: 15px;
+            transition: color 0.2s;
+        }
+
+        .action-link:hover {
+            color: var(--brand-orange);
+        }
+
+        /* -------------------------
+           RESPONSIVE MEDIA QUERIES
+           ------------------------- */
+        @media (max-width: 900px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                transform: translateX(-100%); 
+            }
+
+            .sidebar.active {
+                transform: translateX(0); 
+            }
+
+            .mobile-menu-btn {
+                display: block; 
+            }
+
+            .top-header {
+                padding: 15px 20px;
+            }
+
+            .dashboard-padding {
+                padding: 15px;
+            }
+
+            .user-profile span {
+                display: none; 
+            }
+            
+            .search-bar {
+                max-width: 100%; 
+            }
+
+            .page-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="modal" id="addCustomerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Customer</h2>
+                <button class="close-modal" id="closeCustModalBtn">&times;</button>
+            </div>
+            <form id="addCustomerForm">
+                <div class="form-group">
+                    <label>Client / Company Name</label>
+                    <input type="text" id="custName" placeholder="e.g., Vosloorus Construction CC" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="custEmail" placeholder="e.g., info@company.co.za">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" id="custPhone" placeholder="e.g., 073 123 4567" required>
+                </div>
+                <div class="form-group">
+                    <label>Physical Address</label>
+                    <textarea id="custAddress" rows="3" placeholder="e.g., 123 Marimba Gardens, Vosloorus" required></textarea>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelCustModalBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveCustBtn">Save Customer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header" style="justify-content: center; padding: 20px;">
+            <img src="WhatsApp Image 2026-06-08 at 20.13.14.jpeg" alt="TNO Logo" style="height: 60px; border-radius: 50%;">
+            TNO <span>Portal</span>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item"><a href="dashboard.html" class="nav-link">Dashboard</a></li>
+            <li class="nav-item"><a href="invoice_generator.html" class="nav-link">Invoice Generator</a></li>
+            <li class="nav-item"><a href="inventory.html" class="nav-link">Manage Inventory</a></li>
+            <li class="nav-item"><a href="checkout.html" class="nav-link">Asset Scanner</a></li>
+            <li class="nav-item"><a href="#" class="nav-link active">Customers</a></li>
+            <li class="nav-item" style="margin-top: 20px;"><a href="#" id="logoutBtn" class="nav-link">Log Out</a></li>
+        </ul>
+
+        <div class="sidebar-footer">
+            System by Smiiso Tech Solutions
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="top-header">
+            <div class="header-left-menu">
+                <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="header-title">
+                    <h1>Customer Management</h1>
+                </div>
+            </div>
+            <div class="user-profile">
+                <span id="userEmailText">Loading...</span>
+                <div class="avatar">A</div>
+            </div>
+        </header>
+
+        <div class="dashboard-padding">
+            
+            <div class="page-actions">
+                <p style="color: var(--steel-grey); margin: 0;">Manage your client database, view rental history, and track outstanding balances.</p>
+                <button class="btn btn-primary" id="openCustModalBtn">+ Add New Customer</button>
+            </div>
+
+            <div class="panel">
+                <div class="panel-toolbar">
+                    <div class="search-bar">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--steel-grey);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" id="searchInput" placeholder="Search by name, company, or phone..." onkeyup="window.searchTable()">
+                    </div>
+                    
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" onclick="window.filterTable('all', event)">All Customers</button>
+                        <button class="filter-tab" onclick="window.filterTable('active', event)">Active Rentals</button>
+                        <button class="filter-tab" onclick="window.filterTable('outstanding', event)">Outstanding Balance</button>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table id="customersTable">
+                        <thead>
+                            <tr>
+                                <th>Client / Company</th>
+                                <th>Contact Info</th>
+                                <th>Active Rentals</th>
+                                <th>Total Spent</th>
+                                <th>Current Balance</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customersTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align:center; color:#6B7280;">Loading database...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+<script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, addDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+        // --- 1. CONFIGURATION & INIT ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAcXHUtCeY3AKIob561pq_jSozsi90-_pg",
+            authDomain: "tno-steelworks.firebaseapp.com",
+            projectId: "tno-steelworks",
+            storageBucket: "tno-steelworks.firebasestorage.app",
+            messagingSenderId: "735755881821",
+            appId: "1:735755881821:web:74a0066ed2b6384fa9acb4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        /**
+         * Security Utility: Prevents Cross-Site Scripting (XSS)
+         */
+        const escapeHTML = (str) => {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        };
+
+        // --- 2. AUTHENTICATION ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                document.getElementById('userEmailText').innerText = escapeHTML(user.email);
+                await loadCustomersData();
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            signOut(auth);
+        });
+
+        // --- 3. CORE LOGIC (Smart Ledger Calculation) ---
+        async function loadCustomersData() {
+            const tbody = document.getElementById('customersTableBody');
+            
+            try {
+                const custSnap = await getDocs(collection(db, "customers"));
+                const invSnap = await getDocs(collection(db, "invoices"));
+                const equipSnap = await getDocs(collection(db, "inventory"));
+
+                let customerStats = {};
+                
+                // Build baseline
+                custSnap.forEach(doc => {
+                    const c = doc.data();
+                    customerStats[doc.id] = { ...c, id: doc.id, totalSpent: 0, balance: 0, activeMachines: 0 };
+                });
+
+                // Calculate Financials
+                invSnap.forEach(doc => {
+                    const inv = doc.data();
+                    if(inv.clientId && customerStats[inv.clientId]) {
+                        if(inv.status === 'paid') customerStats[inv.clientId].totalSpent += parseFloat(inv.amount || 0);
+                        if(inv.status === 'unpaid' || inv.status === 'issued') customerStats[inv.clientId].balance += parseFloat(inv.amount || 0);
+                    }
+                });
+
+                // Calculate Active Equipment
+                equipSnap.forEach(doc => {
+                    const eq = doc.data();
+                    if(eq.status && eq.status.toLowerCase() === 'on hire') {
+                        for(let id in customerStats) {
+                            if(customerStats[id].name === eq.currentClientName || customerStats[id].companyName === eq.currentClientName) {
+                                customerStats[id].activeMachines++;
+                            }
+                        }
+                    }
+                });
+
+                tbody.innerHTML = '';
+                if(Object.keys(customerStats).length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#6B7280;">No customers found. Add your first client!</td></tr>';
+                    return;
+                }
+
+                // Render Table Safely
+                Object.values(customerStats).forEach(c => {
+                    let classes = [];
+                    if(c.balance > 0) classes.push('has-outstanding');
+                    if(c.activeMachines > 0) classes.push('has-active');
+                    if(c.balance === 0 && c.activeMachines === 0) classes.push('has-clear');
+
+                    let badgeHtml = c.activeMachines > 0 
+                        ? `<span class="badge badge-active">${c.activeMachines} Machine${c.activeMachines > 1 ? 's':''}</span>`
+                        : `<span class="badge badge-count">0 Machines</span>`;
+
+                    let balanceHtml = c.balance > 0
+                        ? `<span class="balance-owe">R ${c.balance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>`
+                        : `<span class="balance-clear">R 0.00</span>`;
+
+                    // Sanitization layer
+                    const safeName = escapeHTML(c.name || c.companyName || 'Unknown Client');
+                    const safeEmail = escapeHTML(c.email || '--');
+                    const safePhone = escapeHTML(c.phone || 'No phone');
+                    const safeAddress = escapeHTML(c.address || '--');
+                    const safeId = escapeHTML(c.id);
+
+                    tbody.insertAdjacentHTML('beforeend', `
+                        <tr class="${classes.join(' ')}">
+                            <td>
+                                <div class="client-name">${safeName}</div>
+                                <div class="client-email">${safeEmail}</div>
+                            </td>
+                            <td class="contact-info">
+                                <div>${safePhone}</div>
+                                <div style="color: var(--steel-grey); font-size: 0.8rem; margin-top: 2px;">${safeAddress}</div>
+                            </td>
+                            <td>${badgeHtml}</td>
+                            <td>R ${c.totalSpent.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                            <td>${balanceHtml}</td>
+                            <td>
+                                <a href="#" class="action-link" onclick="event.preventDefault(); window.deleteCustomer('${safeId}')" style="color: var(--danger-text);">Delete</a>
+                            </td>
+                        </tr>
+                    `);
+                });
+
+            } catch(e) {
+                console.error("Error loading customers:", e);
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Error fetching data. Check console.</td></tr>';
+            }
+        }
+
+        // --- 4. CUSTOMER MANAGEMENT (Add & Delete) ---
+        const custModal = document.getElementById('addCustomerModal');
+        document.getElementById('openCustModalBtn').addEventListener('click', () => custModal.classList.add('active'));
+
+        const closeCustModal = () => custModal.classList.remove('active');
+        document.getElementById('closeCustModalBtn').addEventListener('click', closeCustModal);
+        document.getElementById('cancelCustModalBtn').addEventListener('click', closeCustModal);
+
+        document.getElementById('addCustomerForm').addEventListener('submit', async (e) => {
+            e.preventDefault(); 
+            const saveBtn = document.getElementById('saveCustBtn');
+            saveBtn.innerText = 'Saving...';
+            saveBtn.disabled = true;
+
+            const newCustomer = {
+                name: document.getElementById('custName').value.trim(),
+                companyName: document.getElementById('custName').value.trim(),
+                email: document.getElementById('custEmail').value.trim() || null,
+                phone: document.getElementById('custPhone').value.trim(),
+                address: document.getElementById('custAddress').value.trim(),
+                createdAt: new Date().toISOString()
+            };
+
+            try {
+                await addDoc(collection(db, "customers"), newCustomer);
+                closeCustModal();
+                document.getElementById('addCustomerForm').reset();
+                saveBtn.innerText = 'Save Customer';
+                saveBtn.disabled = false;
+                await loadCustomersData();
+            } catch (error) {
+                console.error("Database Error: ", error);
+                alert("Error saving to database. Please check console.");
+                saveBtn.innerText = 'Save Customer';
+                saveBtn.disabled = false;
+            }
+        });
+
+        window.deleteCustomer = async function(id) {
+            if (confirm("🚨 CAUTION 🚨\n\nAre you sure you want to permanently delete this customer?\n\nThis will remove them from the portal. Their previous invoices will remain intact.")) {
+                try {
+                    await deleteDoc(doc(db, "customers", id));
+                    alert("✅ Customer deleted successfully.");
+                    await loadCustomersData(); 
+                } catch (error) {
+                    console.error("Error deleting customer:", error);
+                    alert("Failed to delete. Check console for details.");
+                }
+            }
+        };
+    </script>
+</body>
+</html>
